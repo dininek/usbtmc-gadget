@@ -810,6 +810,10 @@ static inline int usb_gadget_disconnect(struct usb_gadget *gadget)
  *	when the host is disconnected.  May be called in_interrupt; this
  *	may not sleep.  Some devices can't detect disconnect, so this might
  *	not be called except as part of controller shutdown.
+ * @reset: Invoked from reset interrupt handler. This call may not sleep.
+ *	Some gadget drivers might benefit from having a different @reset
+ *	and @disconnect methods. For those which don't provide @reset,
+ *	UDC driver is expected to call @disconnect.
  * @bind: the driver's bind callback
  * @unbind: Invoked when the driver is unbound from a gadget,
  *	usually from rmmod (after a disconnect is reported).
@@ -871,6 +875,7 @@ struct usb_gadget_driver {
 	int			(*setup)(struct usb_gadget *,
 					const struct usb_ctrlrequest *);
 	void			(*disconnect)(struct usb_gadget *);
+	void			(*reset)(struct usb_gadget *);
 	void			(*suspend)(struct usb_gadget *);
 	void			(*resume)(struct usb_gadget *);
 
