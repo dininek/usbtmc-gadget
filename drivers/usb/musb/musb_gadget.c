@@ -2090,9 +2090,17 @@ __acquires(musb->lock)
 				: NULL
 			);
 
-	/* report disconnect, if we didn't already (flushing EP state) */
-	if (musb->g.speed != USB_SPEED_UNKNOWN)
-		musb_g_disconnect(musb);
+	/* report reset, if we didn't already (flushing EP state) */
+	if (musb->gadget_driver && musb->gadget_driver->reset) {
+		spin_unlock(&musb->lock);
+		musb->gadget_driver->reset(&musb->g);
+		spin_lock(&musb->lock);
+	} else if (musb->g.speed != USB_SPEED_UNKNOWN && musb->gadget_driver &&
+			musb->gadget_driver->disconnect) {
+		spin_unlock(&musb->lock);
+		musb->gadget_driver->disconnect(&musb->g);
+		spin_lock(&musb->lock);
+	}
 
 	/* clear HR */
 	else if (devctl & MUSB_DEVCTL_HR)
