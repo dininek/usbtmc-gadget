@@ -795,24 +795,22 @@ static irqreturn_t menelaus_irq(int irq, void *_menelaus)
 {
 	struct menelaus_chip *menelaus = _menelaus;
 	void (*handler)(struct menelaus_chip *menelaus);
-	unsigned isr;
+	unsigned long isr;
+	unsigned long i;
 
 	isr = (menelaus_read_reg(MENELAUS_INT_STATUS2)
 			& ~menelaus->mask2) << 8;
 	isr |= menelaus_read_reg(MENELAUS_INT_STATUS1)
 		& ~menelaus->mask1;
 
-	while (isr) {
-		int irq = fls(isr) - 1;
-		isr &= ~(1 << irq);
-
+	for_each_set_bit(i, &isr, 16) {
 		mutex_lock(&menelaus->lock);
-		menelaus_disable_irq(irq);
-		menelaus_ack_irq(irq);
-		handler = menelaus->handlers[irq];
+		menelaus_disable_irq(i);
+		menelaus_ack_irq(i);
+		handler = menelaus->handlers[i];
 		if (handler)
 			handler(menelaus);
-		menelaus_enable_irq(irq);
+		menelaus_enable_irq(i);
 		mutex_unlock(&menelaus->lock);
 	}
 
