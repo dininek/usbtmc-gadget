@@ -21,6 +21,7 @@
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
+#include <linux/pm_runtime.h>
 #include <linux/io.h>
 #include <linux/of_platform.h>
 
@@ -118,11 +119,20 @@ static int kdwc3_probe(struct platform_device *pdev)
 
 	kdwc->clk = devm_clk_get(kdwc->dev, "usb");
 
-	error = clk_prepare_enable(kdwc->clk);
+	error = clk_prepare(kdwc->clk);
 	if (error < 0) {
 		dev_dbg(kdwc->dev, "unable to enable usb clock, err %d\n",
 			error);
 		return error;
+	}
+
+	pm_runtime_enable(dev);
+
+	error = pm_runtime_get_sync(dev);
+	if (error < 0) {
+		dev_dbg(dev, "unable to pm_runtime_get_sync(), err %d\n",
+				error);
+		goto err_irq;
 	}
 
 	irq = platform_get_irq(pdev, 0);
@@ -151,8 +161,11 @@ static int kdwc3_probe(struct platform_device *pdev)
 
 err_core:
 	kdwc3_disable_irqs(kdwc);
+
 err_irq:
-	clk_disable_unprepare(kdwc->clk);
+	pm_runtime_put_sync(dev);
+	pm_runtime_disable(dev);
+	clk_unprepare(kdwc->clk);
 
 	return error;
 }
@@ -172,7 +185,9 @@ static int kdwc3_remove(struct platform_device *pdev)
 
 	kdwc3_disable_irqs(kdwc);
 	device_for_each_child(&pdev->dev, NULL, kdwc3_remove_core);
-	clk_disable_unprepare(kdwc->clk);
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
+	clk_unprepare(kdwc->clk);
 	platform_set_drvdata(pdev, NULL);
 
 	return 0;
@@ -184,6 +199,90 @@ static const struct of_device_id kdwc3_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, kdwc3_of_match);
 
+#ifdef CONFIG_PM
+static int __kdwc3_suspend(struct dwc3_keystone *kdwc)
+{
+	clk_disable(kdwc->clk);
+
+	return 0;
+}
+
+static int __kdwc3_resume(struct dwc3_keystone *kdwc)
+{
+	return clk_enable(kdwc->clk);
+}
+
+static int kdwc3_prepare(struct device *dev)
+{
+	struct dwc3_keystone	*kdwc = dev_get_drvdata(dev);
+
+	kdwc3_disable_irqs(kdwc);
+
+	return 0;
+}
+
+static void kdwc3_complete(struct device *dev)
+{
+	struct dwc3_keystone	*kdwc = dev_get_drvdata(dev);
+
+	kdwc3_enable_irqs(kdwc);
+}
+
+#ifdef CONFIG_PM_SLEEP
+static int kdwc3_suspend(struct device *dev)
+{
+	struct dwc3_keystone	*kdwc = dev_get_drvdata(dev);
+
+	if (pm_runtime_suspended(dev))
+		return 0;
+
+	return __kdwc3_suspend(kdwc);
+}
+
+static int kdwc3_resume(struct device *dev)
+{
+	struct dwc3_keystone	*kdwc = dev_get_drvdata(dev);
+	int			ret;
+
+	ret = __kdwc3_resume(kdwc);
+	if (ret)
+		return ret;
+
+	pm_runtime_disable(dev);
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+
+	return 0;
+}
+#endif /* CONFIG_PM_SLEEP */
+
+#ifdef CONFIG_PM_RUNTIME
+static int kdwc3_runtime_suspend(struct device *dev)
+{
+	struct dwc3_keystone *kdwc = dev_get_drvdata(dev);
+
+	return __kdwc3_suspend(kdwc);
+}
+
+static int kdwc3_runtime_resume(struct device *dev)
+{
+	struct dwc3_keystone *kdwc = dev_get_drvdata(dev);
+
+	return __kdwc3_resume(kdwc);
+}
+#endif /* CONFIG_PM_RUNTIME */
+#endif /* CONFIG_PM */
+
+static const struct dev_pm_ops kdwc3_dev_pm_ops = {
+#ifdef CONFIG_PM
+	.prepare	= kdwc3_prepare,
+	.complete	= kdwc3_complete,
+#endif /* CONFIG_PM */
+
+	SET_SYSTEM_SLEEP_PM_OPS(kdwc3_suspend, kdwc3_resume)
+	SET_RUNTIME_PM_OPS(kdwc3_runtime_suspend, kdwc3_runtime_resume, NULL)
+};
+
 static struct platform_driver kdwc3_driver = {
 	.probe		= kdwc3_probe,
 	.remove		= kdwc3_remove,
@@ -191,6 +290,7 @@ static struct platform_driver kdwc3_driver = {
 		.name	= "keystone-dwc3",
 		.owner	        = THIS_MODULE,
 		.of_match_table	= kdwc3_of_match,
+		.pm		= &kdwc3_dev_pm_ops,
 	},
 };
 
