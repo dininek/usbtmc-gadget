@@ -110,18 +110,17 @@ static int dwc3_pci_probe(struct pci_dev *pci,
 
 	glue->dev = dev;
 
-	ret = pci_enable_device(pci);
+	pm_runtime_enable(dev);
+	ret = pm_runtime_get_sync(dev);
 	if (ret) {
 		dev_err(dev, "failed to enable pci device\n");
 		return -ENODEV;
 	}
 
-	pci_set_master(pci);
-
 	ret = dwc3_pci_register_phys(glue);
 	if (ret) {
 		dev_err(dev, "couldn't register PHYs\n");
-		return ret;
+		goto err1;
 	}
 
 	dwc3 = platform_device_alloc("dwc3", PLATFORM_DEVID_AUTO);
@@ -168,7 +167,8 @@ static int dwc3_pci_probe(struct pci_dev *pci,
 err3:
 	platform_device_put(dwc3);
 err1:
-	pci_disable_device(pci);
+	pm_runtime_put_sync(dev);
+	pm_runtime_disable(dev);
 
 	return ret;
 }
@@ -176,11 +176,13 @@ err1:
 static void dwc3_pci_remove(struct pci_dev *pci)
 {
 	struct dwc3_pci	*glue = pci_get_drvdata(pci);
+	struct device *dev = &pci->dev;
 
 	platform_device_unregister(glue->dwc3);
 	platform_device_unregister(glue->usb2_phy);
 	platform_device_unregister(glue->usb3_phy);
-	pci_disable_device(pci);
+	pm_runtime_put_sync(dev);
+	pm_runtime_disable(dev);
 }
 
 static const struct pci_device_id dwc3_pci_id_table[] = {
@@ -194,24 +196,21 @@ static const struct pci_device_id dwc3_pci_id_table[] = {
 };
 MODULE_DEVICE_TABLE(pci, dwc3_pci_id_table);
 
-#ifdef CONFIG_PM_SLEEP
-static int dwc3_pci_suspend(struct device *dev)
+#ifdef CONFIG_PM
+static int __dwc3_pci_suspend(struct pci_dev *pci)
 {
-	struct pci_dev	*pci = to_pci_dev(dev);
-
 	pci_disable_device(pci);
 
 	return 0;
 }
 
-static int dwc3_pci_resume(struct device *dev)
+static int __dwc3_pci_resume(struct pci_dev *pci)
 {
-	struct pci_dev	*pci = to_pci_dev(dev);
-	int		ret;
+	int ret;
 
 	ret = pci_enable_device(pci);
 	if (ret) {
-		dev_err(dev, "can't re-enable device --> %d\n", ret);
+		dev_err(&pci->dev, "can't re-enable device --> %d\n", ret);
 		return ret;
 	}
 
@@ -219,10 +218,56 @@ static int dwc3_pci_resume(struct device *dev)
 
 	return 0;
 }
+
+#ifdef CONFIG_PM
+static int dwc3_pci_suspend(struct device *dev)
+{
+	struct pci_dev	*pci = to_pci_dev(dev);
+
+	if (pm_runtime_suspended(dev))
+		return 0;
+
+	return __dwc3_pci_suspend(pci);
+}
+
+static int dwc3_pci_resume(struct device *dev)
+{
+	struct pci_dev	*pci = to_pci_dev(dev);
+	int		ret;
+
+	ret = __dwc3_pci_resume(pci);
+	if (ret)
+		return ret;
+
+	pm_runtime_disable(dev);
+	pm_runtime_set_active(dev);
+	pm_runtime_disable(dev);
+
+	return 0;
+}
 #endif /* CONFIG_PM_SLEEP */
+
+#ifdef CONFIG_PM_RUNTIME
+static int dwc3_pci_runtime_suspend(struct device *dev)
+{
+	struct pci_dev	*pci = to_pci_dev(dev);
+
+	return __dwc3_pci_suspend(pci);
+}
+
+static int dwc3_pci_runtime_resume(struct device *dev)
+{
+	struct pci_dev	*pci = to_pci_dev(dev);
+
+	return __dwc3_pci_resume(pci);
+}
+#endif /* CONFIG_PM_RUNTIME */
+#endif /* CONFIG_PM */
 
 static const struct dev_pm_ops dwc3_pci_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(dwc3_pci_suspend, dwc3_pci_resume)
+	SET_RUNTIME_PM_OPS(dwc3_pci_runtime_suspend, dwc3_pci_runtime_resume,
+			NULL)
 };
 
 static struct pci_driver dwc3_pci_driver = {
