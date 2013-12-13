@@ -676,7 +676,7 @@ static int do_read(struct fsg_common *common)
 		 * But don't read more than the buffer size.
 		 * And don't try to read past the end of the file.
 		 */
-		amount = min(amount_left, FSG_BUFLEN);
+		amount = min_t(u32, amount_left, CONFIG_USB_GADGET_STORAGE_BUFLEN);
 		amount = min((loff_t)amount,
 			     curlun->file_length - file_offset);
 
@@ -826,7 +826,8 @@ static int do_write(struct fsg_common *common)
 			 * Try to get the remaining amount,
 			 * but not more than the buffer size.
 			 */
-			amount = min(amount_left_to_req, FSG_BUFLEN);
+			amount = min_t(u32, amount_left_to_req,
+					CONFIG_USB_GADGET_STORAGE_BUFLEN);
 
 			/* Beyond the end of the backing file? */
 			if (usb_offset >= curlun->file_length) {
@@ -1030,7 +1031,8 @@ static int do_verify(struct fsg_common *common)
 		 * the buffer size.
 		 * And don't try to read past the end of the file.
 		 */
-		amount = min(amount_left, FSG_BUFLEN);
+		amount = min_t(u32, amount_left,
+				CONFIG_USB_GADGET_STORAGE_BUFLEN);
 		amount = min((loff_t)amount,
 			     curlun->file_length - file_offset);
 		if (amount == 0) {
@@ -1261,7 +1263,7 @@ static int do_mode_sense(struct fsg_common *common, struct fsg_buffhd *bh)
 	} else {			/* MODE_SENSE_10 */
 		buf[3] = (curlun->ro ? 0x80 : 0x00);		/* WP, DPOFUA */
 		buf += 8;
-		limit = 65535;		/* Should really be FSG_BUFLEN */
+		limit = 65535;		/* Should really be CONFIG_USB_GADGET_STORAGE_BUFLEN */
 	}
 
 	/* No block descriptors */
@@ -1488,7 +1490,8 @@ static int throw_away_data(struct fsg_common *common)
 		bh = common->next_buffhd_to_fill;
 		if (bh->state == BUF_STATE_EMPTY
 		 && common->usb_amount_left > 0) {
-			amount = min(common->usb_amount_left, FSG_BUFLEN);
+			amount = min_t(u32, common->usb_amount_left,
+					CONFIG_USB_GADGET_STORAGE_BUFLEN);
 
 			/*
 			 * Except at the end of the transfer, amount will be
@@ -2722,7 +2725,7 @@ int fsg_common_set_num_buffers(struct fsg_common *common, unsigned int n)
 		bh->next = bh + 1;
 		++bh;
 buffhds_first_it:
-		bh->buf = kmalloc(FSG_BUFLEN, GFP_KERNEL);
+		bh->buf = kmalloc(CONFIG_USB_GADGET_STORAGE_BUFLEN, GFP_KERNEL);
 		if (unlikely(!bh->buf))
 			goto error_release;
 	} while (--i);
@@ -3147,7 +3150,7 @@ static int fsg_bind(struct usb_configuration *c, struct usb_function *f)
 		fsg_fs_bulk_out_desc.bEndpointAddress;
 
 	/* Calculate bMaxBurst, we know packet size is 1024 */
-	max_burst = min_t(unsigned, FSG_BUFLEN / 1024, 15);
+	max_burst = min_t(u32, CONFIG_USB_GADGET_STORAGE_BUFLEN / 1024, 15);
 
 	fsg_ss_bulk_in_desc.bEndpointAddress =
 		fsg_fs_bulk_in_desc.bEndpointAddress;

@@ -119,9 +119,6 @@ static inline bool fsg_lun_is_open(struct fsg_lun *curlun)
 	return curlun->filp != NULL;
 }
 
-/* Default size of buffer length. */
-#define FSG_BUFLEN	((u32)16384)
-
 /* Maximal number of LUNs supported in mass storage function */
 #define FSG_MAX_LUNS	8
 

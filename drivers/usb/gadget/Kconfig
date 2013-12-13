@@ -127,6 +127,21 @@ config USB_GADGET_STORAGE_NUM_BUFFERS
 	   a module parameter as well.
 	   If unsure, say 2.
 
+config USB_GADGET_STORAGE_BUFLEN
+	int "Size of each storage pipeline buffer"
+	range 4096 131072
+	default 16384
+	help
+	  For USB2-based device controllers, 16KiB of buffer space is
+	  usually enough to maintain the HW FIFOs full during an entire
+	  session.
+
+	  When dealing with USB3 device controllers, however, 16KiB is
+	  not enough.
+
+	  Change this to match your device requirements. If unsure, say
+	  16384.
+
 #
 # USB Peripheral Controller Support
 #
