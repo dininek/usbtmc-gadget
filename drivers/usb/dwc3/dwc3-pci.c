@@ -96,7 +96,7 @@ err1:
 static int dwc3_pci_probe(struct pci_dev *pci,
 		const struct pci_device_id *id)
 {
-	struct resource		res[2];
+	struct resource		res[4];
 	struct platform_device	*dwc3;
 	struct dwc3_pci		*glue;
 	int			ret = -ENOMEM;
@@ -139,8 +139,16 @@ static int dwc3_pci_probe(struct pci_dev *pci,
 	res[0].flags	= IORESOURCE_MEM;
 
 	res[1].start	= pci->irq;
-	res[1].name	= "dwc_usb3";
+	res[1].name	= "dwc3_peripheral";
 	res[1].flags	= IORESOURCE_IRQ;
+
+	res[2].start	= pci->irq;
+	res[2].name	= "dwc3_host";
+	res[2].flags	= IORESOURCE_IRQ;
+
+	res[3].start	= pci->irq;
+	res[3].name	= "dwc3_otg";
+	res[3].flags	= IORESOURCE_IRQ;
 
 	ret = platform_device_add_resources(dwc3, res, ARRAY_SIZE(res));
 	if (ret) {
