@@ -519,6 +519,8 @@ static int dwc3_probe(struct platform_device *pdev)
 	dwc->xhci_resources[1].flags = res->flags;
 	dwc->xhci_resources[1].name = res->name;
 
+	dwc->otg_irq = platform_get_irq_byname(pdev, "dwc3_otg");
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		dev_err(dev, "missing memory resource\n");
@@ -689,6 +691,12 @@ static int dwc3_probe(struct platform_device *pdev)
 		break;
 	case USB_DR_MODE_OTG:
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_OTG);
+		ret = dwc3_otg_init(dwc);
+		if (ret) {
+			dev_err(dev, "failed to initialize otg\n");
+			goto err2;
+		}
+
 		ret = dwc3_host_init(dwc);
 		if (ret) {
 			dev_err(dev, "failed to initialize host\n");
@@ -725,6 +733,7 @@ err3:
 		dwc3_host_exit(dwc);
 		break;
 	case USB_DR_MODE_OTG:
+		dwc3_otg_exit(dwc);
 		dwc3_host_exit(dwc);
 		dwc3_gadget_exit(dwc);
 		break;

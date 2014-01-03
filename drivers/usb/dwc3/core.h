@@ -671,6 +671,7 @@ struct dwc3_scratchpad_array {
  * @maximum_speed: maximum speed requested (mainly for testing purposes)
  * @revision: revision register contents
  * @dr_mode: requested mode of operation
+ * @otg_irq: IRQ number for OTG IRQs
  * @usb2_phy: pointer to USB2 PHY
  * @usb3_phy: pointer to USB3 PHY
  * @usb2_generic_phy: pointer to USB2 PHY
@@ -745,6 +746,8 @@ struct dwc3 {
 	size_t			regs_size;
 
 	enum usb_dr_mode	dr_mode;
+
+	int			otg_irq;
 
 	/* used for suspend/resume */
 	u32			dcfg;
@@ -1004,6 +1007,16 @@ static inline int dwc3_send_gadget_ep_cmd(struct dwc3 *dwc, unsigned ep,
 static inline int dwc3_send_gadget_generic_command(struct dwc3 *dwc,
 		int cmd, u32 param)
 { return 0; }
+#endif
+
+#if IS_ENABLED(CONFIG_USB_DWC3_DUAL_ROLE)
+int dwc3_otg_init(struct dwc3 *dwc);
+void dwc3_otg_exit(struct dwc3 *dwc);
+#else
+static inline int dwc3_otg_init(struct dwc3 *dwc)
+{ return 0; }
+static inline void dwc3_otg_exit(struct dwc3 *dwc)
+{ }
 #endif
 
 /* power management interface */
