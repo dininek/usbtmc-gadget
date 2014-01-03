@@ -671,6 +671,8 @@ struct dwc3_scratchpad_array {
  * @maximum_speed: maximum speed requested (mainly for testing purposes)
  * @revision: revision register contents
  * @dr_mode: requested mode of operation
+ * @gadget_irq: IRQ number for Peripheral IRQs
+ * @xhci_irq: IRQ number for Host IRQs
  * @otg_irq: IRQ number for OTG IRQs
  * @usb2_phy: pointer to USB2 PHY
  * @usb3_phy: pointer to USB3 PHY
@@ -747,6 +749,8 @@ struct dwc3 {
 
 	enum usb_dr_mode	dr_mode;
 
+	int			gadget_irq;
+	int			xhci_irq;
 	int			otg_irq;
 
 	/* used for suspend/resume */

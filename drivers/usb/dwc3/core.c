@@ -509,18 +509,6 @@ static int dwc3_probe(struct platform_device *pdev)
 	dwc = PTR_ALIGN(mem, DWC3_ALIGN_MASK + 1);
 	dwc->mem = mem;
 
-	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	if (!res) {
-		dev_err(dev, "missing IRQ\n");
-		return -ENODEV;
-	}
-	dwc->xhci_resources[1].start = res->start;
-	dwc->xhci_resources[1].end = res->end;
-	dwc->xhci_resources[1].flags = res->flags;
-	dwc->xhci_resources[1].name = res->name;
-
-	dwc->otg_irq = platform_get_irq_byname(pdev, "dwc3_otg");
-
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		dev_err(dev, "missing memory resource\n");
@@ -674,6 +662,17 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	switch (dwc->dr_mode) {
 	case USB_DR_MODE_PERIPHERAL:
+		dwc->gadget_irq = platform_get_irq_byname(pdev, "dwc3_peripheral");
+		if (dwc->gadget_irq < 0) {
+			dwc->gadget_irq = platform_get_irq_byname(pdev, "dwc_usb3");
+			if (dwc->gadget_irq < 0) {
+				dev_err(dev, "missing IRQ\n");
+				return dwc->gadget_irq;
+			} else {
+				dev_warn(dev, "dwc_usb3 resource is deprecated\n");
+			}
+		}
+
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
 		ret = dwc3_gadget_init(dwc);
 		if (ret) {
@@ -682,6 +681,22 @@ static int dwc3_probe(struct platform_device *pdev)
 		}
 		break;
 	case USB_DR_MODE_HOST:
+		dwc->xhci_irq = platform_get_irq_byname(pdev, "dwc3_host");
+		if (dwc->xhci_irq < 0) {
+			dwc->xhci_irq = platform_get_irq_byname(pdev, "dwc_usb3");
+			if (dwc->xhci_irq < 0) {
+				dev_err(dev, "missing Host IRQ\n");
+				goto err2;
+			} else {
+				dev_warn(dev, "dwc_usb3 resource is deprecated\n");
+			}
+
+			dwc->xhci_resources[1].start = dwc->xhci_irq;
+			dwc->xhci_resources[1].end = dwc->xhci_irq;
+			dwc->xhci_resources[1].flags = IORESOURCE_IRQ;
+			dwc->xhci_resources[1].name = "xhci";
+		}
+
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_HOST);
 		ret = dwc3_host_init(dwc);
 		if (ret) {
@@ -690,6 +705,28 @@ static int dwc3_probe(struct platform_device *pdev)
 		}
 		break;
 	case USB_DR_MODE_OTG:
+		dwc->gadget_irq = platform_get_irq_byname(pdev, "dwc3_peripheral");
+		if (dwc->gadget_irq < 0) {
+			dwc->gadget_irq = platform_get_irq_byname(pdev, "dwc_usb3");
+			if (dwc->gadget_irq < 0) {
+				dev_err(dev, "missing IRQ\n");
+				return dwc->gadget_irq;
+			} else {
+				dev_warn(dev, "dwc_usb3 resource is deprecated\n");
+			}
+
+			dwc->xhci_irq = dwc->gadget_irq;
+			dwc->otg_irq = dwc->gadget_irq;
+		} else {
+			dwc->xhci_irq = platform_get_irq_byname(pdev, "dwc3_host");
+			if (dwc->xhci_irq < 0) {
+				dev_err(dev, "missing Host IRQ\n");
+				return -ENODEV;
+			}
+
+			dwc->otg_irq = platform_get_irq_byname(pdev, "dwc3_otg");
+		}
+
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_OTG);
 		ret = dwc3_otg_init(dwc);
 		if (ret) {

@@ -1527,15 +1527,13 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 	struct dwc3_ep		*dep;
 	unsigned long		flags;
 	int			ret = 0;
-	int			irq;
 	u32			reg;
 
-	irq = platform_get_irq(to_platform_device(dwc->dev), 0);
-	ret = request_threaded_irq(irq, dwc3_interrupt, dwc3_thread_interrupt,
-			IRQF_SHARED, "dwc3", dwc);
+	ret = request_threaded_irq(dwc->gadget_irq, dwc3_interrupt,
+			dwc3_thread_interrupt, IRQF_SHARED, "dwc3", dwc);
 	if (ret) {
 		dev_err(dwc->dev, "failed to request irq #%d --> %d\n",
-				irq, ret);
+				dwc->gadget_irq, ret);
 		goto err0;
 	}
 
@@ -1628,7 +1626,7 @@ err2:
 err1:
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
-	free_irq(irq, dwc);
+	free_irq(dwc->gadget_irq, dwc);
 
 err0:
 	return ret;
@@ -1639,7 +1637,6 @@ static int dwc3_gadget_stop(struct usb_gadget *g,
 {
 	struct dwc3		*dwc = gadget_to_dwc(g);
 	unsigned long		flags;
-	int			irq;
 
 	spin_lock_irqsave(&dwc->lock, flags);
 
@@ -1651,8 +1648,7 @@ static int dwc3_gadget_stop(struct usb_gadget *g,
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
-	irq = platform_get_irq(to_platform_device(dwc->dev), 0);
-	free_irq(irq, dwc);
+	free_irq(dwc->gadget_irq, dwc);
 
 	return 0;
 }
