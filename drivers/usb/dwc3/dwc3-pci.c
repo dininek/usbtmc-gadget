@@ -93,6 +93,12 @@ err1:
 	return ret;
 }
 
+static int dwc3_pci_is_merrifield(const struct pci_device_id *id)
+{
+	return (id->vendor == PCI_VENDOR_ID_INTEL) &&
+		(id->device == PCI_DEVICE_ID_INTEL_MRFLD);
+}
+
 static int dwc3_pci_probe(struct pci_dev *pci,
 		const struct pci_device_id *id)
 {
@@ -100,6 +106,7 @@ static int dwc3_pci_probe(struct pci_dev *pci,
 	struct platform_device	*dwc3;
 	struct dwc3_pci		*glue;
 	int			ret = -ENOMEM;
+	size_t			array_size = ARRAY_SIZE(res);
 	struct device		*dev = &pci->dev;
 
 	glue = devm_kzalloc(dev, sizeof(*glue), GFP_KERNEL);
@@ -146,11 +153,16 @@ static int dwc3_pci_probe(struct pci_dev *pci,
 	res[2].name	= "dwc3_host";
 	res[2].flags	= IORESOURCE_IRQ;
 
-	res[3].start	= pci->irq;
-	res[3].name	= "dwc3_otg";
-	res[3].flags	= IORESOURCE_IRQ;
+	if (dwc3_pci_is_merrifield(id)) {
+		dev_dbg(dev, "Merrifield can't use OTG IRQ\n");
+		array_size--;
+	} else {
+		res[3].start	= pci->irq;
+		res[3].name	= "dwc3_otg";
+		res[3].flags	= IORESOURCE_IRQ;
+	}
 
-	ret = platform_device_add_resources(dwc3, res, ARRAY_SIZE(res));
+	ret = platform_device_add_resources(dwc3, res, array_size);
 	if (ret) {
 		dev_err(dev, "couldn't add resources to dwc3 device\n");
 		goto err1;
