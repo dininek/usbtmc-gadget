@@ -59,6 +59,42 @@
 			0x1b0 0x03      /* xdma_event_intr0, OMAP_MUX_MODE3 | AM33XX_PIN_OUTPUT */
 		>;
 	};
+
+	i2c2_pins: i2c2_pins {
+		pinctrl-single,pins = <
+			0x178 (PIN_INPUT | SLEWCTRL_FAST | MUX_MODE3) /* uart1_ctsn.i2c2_sda */
+			0x17c (PIN_INPUT | SLEWCTRL_FAST | MUX_MODE3) /* uart1_rtsn.i2c2_scl */
+		>;
+	};
+
+	light_pins: light_pins {
+		pinctrl-single,pins = <
+			0x78 (PIN_INPUT | MUX_MODE7)	/* gpmc_ben1.gpio1_28 */
+		>;
+	};
+};
+
+&gpio1 {
+	status = "okay";
+};
+
+&i2c2 {
+	status  = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2_pins>;
+
+	clock-frequency = <400000>;
+
+	light@44 {
+		status  = "okay";
+		pinctrl-names = "default";
+		pinctrl-0 = <&light_pins>;
+
+		compatible = "opt3001";
+		reg = <0x44>;
+
+		interrupts-extended = <&gpio1 28 IRQ_TYPE_LEVEL_HIGH>;
+	};
 };
 
 &lcdc {
