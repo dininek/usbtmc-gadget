@@ -156,6 +156,8 @@ static int omap_device_build_from_dt(struct platform_device *pdev)
 		hwmods[i] = oh;
 		if (oh->flags & HWMOD_INIT_NO_IDLE)
 			device_active = true;
+
+		omap_hwmod_register_debugfs(oh);
 	}
 
 	od = omap_device_alloc(pdev, hwmods, oh_cnt);

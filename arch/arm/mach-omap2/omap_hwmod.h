@@ -768,4 +768,13 @@ int am43xx_hwmod_init(void);
 
 extern int __init omap_hwmod_register_links(struct omap_hwmod_ocp_if **ois);
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+extern int omap_hwmod_register_debugfs(struct omap_hwmod *oh);
+#else
+static inline int omap_hwmod_register_debugfs(struct omap_hwmod *oh)
+{
+	return 0;
+}
+#endif
+
 #endif
