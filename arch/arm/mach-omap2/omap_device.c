@@ -25,6 +25,7 @@
  */
 #undef DEBUG
 
+#include <linux/ctype.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
@@ -109,6 +110,118 @@ static void _add_hwmod_clocks_clkdev(struct omap_device *od,
 		_add_clkdev(od, oh->opt_clks[i].role, oh->opt_clks[i].clk);
 }
 
+static int omap_hwmod_has_sysc_bindings(struct device *dev)
+{
+	struct device_node *node = dev->of_node;
+	char *properties[] = {
+		"ti,rev_offs",
+		"ti,sysc_offs",
+		"ti,syss_offs",
+		"ti,sysc_flags",
+		"ti,srst_udelay",
+		"ti,idlemodes",
+		"ti,clockact",
+		"ti,sysc_type",
+		NULL
+	};
+	char **tmp = properties;
+
+	while (*tmp) {
+		if (of_property_read_bool(node, *tmp)) {
+			return true;
+		}
+		tmp++;
+	}
+
+	return 0;
+}
+
+static int omap_hwmod_init_sysc(struct device *dev,
+		struct omap_hwmod *oh, int index)
+{
+	struct device_node *node = dev->of_node;
+	struct omap_hwmod_class *class = oh->class;
+	struct omap_hwmod_class_sysconfig *sysc;
+	int ret;
+	int i;
+	char name[128];
+	const char *tmp = oh->name;
+	u32 prop;
+
+	/* if data isn't provided by DT, skip */
+	if ((class && class->sysc) || !omap_hwmod_has_sysc_bindings(dev))
+		return 0;
+
+	class = kzalloc(sizeof(*class), GFP_KERNEL);
+	if (!class)
+		return -ENOMEM;
+
+	i = 0;
+	while (*tmp) {
+		if (isalpha(*tmp))
+			name[i++] = *tmp;
+		tmp++;
+	}
+	name[i] = '\0';
+
+	class->name = kzalloc(sizeof(name), GFP_KERNEL);
+	if (!class->name)
+		return -ENOMEM;
+	strncpy(class->name, name, sizeof(name) - 1);
+
+	sysc = kzalloc(sizeof(*sysc), GFP_KERNEL);
+	if (!sysc)
+		return -ENOMEM;
+
+	ret = of_property_read_u32_index(node, "ti,rev_offs", index, &prop);
+	if (!ret)
+		sysc->rev_offs = prop;
+
+	ret = of_property_read_u32_index(node, "ti,sysc_offs", index, &prop);
+	if (!ret)
+		sysc->sysc_offs = prop;
+
+	ret = of_property_read_u32_index(node, "ti,syss_offs", index, &prop);
+	if (!ret)
+		sysc->syss_offs = prop;
+
+	ret = of_property_read_u32_index(node, "ti,sysc_flags", index, &prop);
+	if (!ret)
+		sysc->sysc_flags = prop & 0xffff;
+
+	ret = of_property_read_u32_index(node, "ti,srst_udelay", index, &prop);
+	if (!ret)
+		sysc->srst_udelay = prop & 0xff;
+
+	ret = of_property_read_u32_index(node, "ti,idlemodes", index, &prop);
+	if (!ret)
+		sysc->idlemodes = prop & 0xff;
+
+	ret = of_property_read_u32_index(node, "ti,clockact", index, &prop);
+	if (!ret)
+		sysc->clockact = prop & 0xff;
+
+	ret = of_property_read_u32_index(node, "ti,sysc_type", index, &prop);
+	if (ret)
+		prop = 1;
+
+	switch (prop) {
+	case 2:
+		sysc->sysc_fields = &omap_hwmod_sysc_type2;
+		break;
+	case 3:
+		sysc->sysc_fields = &omap_hwmod_sysc_type3;
+		break;
+	case 1:
+	default:
+		sysc->sysc_fields = &omap_hwmod_sysc_type1;
+	}
+
+	class->sysc = sysc;
+	oh->class = class;
+
+	return 0;
+}
 
 /**
  * omap_device_build_from_dt - build an omap_device with multiple hwmods
@@ -154,6 +267,11 @@ static int omap_device_build_from_dt(struct platform_device *pdev)
 			goto odbfd_exit1;
 		}
 		hwmods[i] = oh;
+
+		ret = omap_hwmod_init_sysc(&pdev->dev, oh, i);
+		if (ret)
+			goto odbfd_exit1;
+
 		if (oh->flags & HWMOD_INIT_NO_IDLE)
 			device_active = true;
 
