@@ -23,6 +23,13 @@ Optional properties:
   during suspend.
 - ti,no-reset-on-init: When present, the module should not be reset at init
 - ti,no-idle-on-init: When present, the module should not be idled at init
+- ti,rev_offs: IP block revision register offset (defaults to 0)
+- ti,sysc_offs: OCP_SYSCONFIG register offset (defaults to 0)
+- ti,syss_offs: OCP_SYSSTATUS register offset (defaults to 0)
+- ti,srst_udelay: Delay needed after a softreset in usecs (defaults to 0)
+- ti,idlemodes: Slave and Master supported idling modes
+- ti,clockact: default value of clock activity bits (defaults to 0)
+- ti,sysc_type: OCP_SYSCONFIG type. Valid types are 1, 2 or 3 (defaults to 1)
 
 Example:
 
