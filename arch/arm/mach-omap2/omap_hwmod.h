@@ -588,7 +588,7 @@ struct omap_hwmod_omap4_prcm {
  * unusual reset sequences - usually processor IP blocks like the IVA.
  */
 struct omap_hwmod_class {
-	const char				*name;
+	char					*name;
 	struct omap_hwmod_class_sysconfig	*sysc;
 	u32					rev;
 	int					(*pre_shutdown)(struct omap_hwmod *oh);
