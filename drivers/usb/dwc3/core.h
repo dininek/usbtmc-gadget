@@ -146,6 +146,15 @@
 
 /* Bit fields */
 
+/* OTG Status Register */
+#define DWC3_OSTS_CONIDSTS	(1 << 0)
+#define DWC3_OSTS_VBUSVLD	(1 << 1)
+#define DWC3_OSTS_BSESVLD	(1 << 2)
+#define DWC3_OSTS_XHCIPRTPWR	(1 << 3)
+#define DWC3_OSTS_PERIPHERALSTATE (1 << 4)
+#define DWC3_OSTS_XHCIRUNSTP	(1 << 12)
+#define DWC3_OSTS_DEVRUNSTP	(1 << 13)
+
 /* Global Configuration Register */
 #define DWC3_GCTL_PWRDNSCALE(n)	((n) << 19)
 #define DWC3_GCTL_U2RSTECN	(1 << 16)
