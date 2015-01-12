@@ -40,6 +40,7 @@ struct omap_usb {
 	struct clk		*wkupclk;
 	struct clk		*optclk;
 	u8			flags;
+	int			instance;
 };
 
 struct usb_phy_data {

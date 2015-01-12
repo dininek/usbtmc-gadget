@@ -137,6 +137,24 @@ static int omap_usb_init(struct phy *x)
 	return 0;
 }
 
+static int omap_usb_bus_power_on(struct phy *x)
+{
+	struct omap_usb *phy = phy_get_drvdata(x);
+	int instance = 0;
+
+	omap_control_usb_drvvbus(phy->control_dev, instance, true);
+
+	return 0;
+}
+
+static void omap_usb_bus_power_off(struct phy *x)
+{
+	struct omap_usb *phy = phy_get_drvdata(x);
+	int instance = 0;
+
+	omap_control_usb_drvvbus(phy->control_dev, instance, false);
+}
+
 static struct phy_ops ops = {
 	.init		= omap_usb_init,
 	.power_on	= omap_usb_power_on,
@@ -255,6 +273,24 @@ static int omap_usb2_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, phy);
 	pm_runtime_enable(phy->dev);
+
+	if (of_device_is_compatible(node, "ti,am437x-usb2")) {
+		ops.bus_power_on = omap_usb_bus_power_on;
+		ops.bus_power_off = omap_usb_bus_power_off;
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+
+		/*
+		 * FIXME this is so ugly!! But there's really
+		 * no other way for differentiating the PHYs to
+		 * the control module. Note that the SMA register
+		 * is unique and controls both Subsystems' DRVVBUS
+		 * signals.
+		 */
+		if (res && res->start == 0x483a8000)
+			phy->instance = 0;
+		else if (res && res->start == 0x483e8000)
+			phy->instance = 1;
+	}
 
 	generic_phy = devm_phy_create(phy->dev, NULL, &ops);
 	if (IS_ERR(generic_phy)) {
