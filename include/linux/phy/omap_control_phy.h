@@ -35,6 +35,7 @@ struct omap_control_phy {
 	u32 __iomem *power;
 	u32 __iomem *power_aux;
 	u32 __iomem *pcie_pcs;
+	u32 __iomem *sma;
 
 	struct clk *sys_clk;
 
@@ -75,11 +76,17 @@ enum omap_control_usb_mode {
 #define AM437X_CTRL_USB2_OTGVDET_EN	BIT(19)
 #define AM437X_CTRL_USB2_OTGSESSEND_EN	BIT(20)
 
+#define AM437X_CTRL_SMA_ASSERT_USB0_DRVVBUS	BIT(3)
+#define AM437X_CTRL_SMA_DEASSERT_USB0_DRVVBUS	BIT(4)
+#define AM437X_CTRL_SMA_ASSERT_USB1_DRVVBUS	BIT(9)
+#define AM437X_CTRL_SMA_DEASSERT_USB1_DRVVBUS	BIT(10)
+
 #if IS_ENABLED(CONFIG_OMAP_CONTROL_PHY)
 void omap_control_phy_power(struct device *dev, int on);
 void omap_control_usb_set_mode(struct device *dev,
 			       enum omap_control_usb_mode mode);
 void omap_control_pcie_pcs(struct device *dev, u8 id, u8 delay);
+void omap_control_usb_drvvbus(struct device *dev, int instance, int drvvbus);
 #else
 
 static inline void omap_control_phy_power(struct device *dev, int on)
@@ -92,6 +99,11 @@ static inline void omap_control_usb_set_mode(struct device *dev,
 }
 
 static inline void omap_control_pcie_pcs(struct device *dev, u8 id, u8 delay)
+{
+}
+
+static inline void omap_control_usb_drvvbus(struct device *dev, int instance,
+		int drvvbus)
 {
 }
 #endif

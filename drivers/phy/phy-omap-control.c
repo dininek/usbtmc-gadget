@@ -145,6 +145,38 @@ void omap_control_phy_power(struct device *dev, int on)
 }
 EXPORT_SYMBOL_GPL(omap_control_phy_power);
 
+void omap_control_usb_drvvbus(struct device *dev, int instance, int drvvbus)
+{
+	struct omap_control_phy	*control_phy = dev_get_drvdata(dev);
+	u32 val;
+
+	val = readl(control_phy->sma);
+
+	switch (instance) {
+	case 0:
+		val &= ~(AM437X_CTRL_SMA_ASSERT_USB0_DRVVBUS |
+				AM437X_CTRL_SMA_DEASSERT_USB0_DRVVBUS);
+		if (drvvbus)
+			val |= AM437X_CTRL_SMA_ASSERT_USB0_DRVVBUS;
+		else
+			val |= AM437X_CTRL_SMA_DEASSERT_USB0_DRVVBUS;
+		break;
+	case 1:
+		val &= ~(AM437X_CTRL_SMA_ASSERT_USB1_DRVVBUS |
+				AM437X_CTRL_SMA_DEASSERT_USB1_DRVVBUS);
+		if (drvvbus)
+			val |= AM437X_CTRL_SMA_ASSERT_USB1_DRVVBUS;
+		else
+			val |= AM437X_CTRL_SMA_DEASSERT_USB1_DRVVBUS;
+		break;
+	default:
+		WARN(true, "UNKNOWN USB Instance %d\n", instance);
+	}
+
+	writel(val, control_phy->sma);
+}
+EXPORT_SYMBOL_GPL(omap_control_usb_drvvbus);
+
 /**
  * omap_control_usb_host_mode - set AVALID, VBUSVALID and ID pin in grounded
  * @ctrl_phy: struct omap_control_phy *
@@ -315,6 +347,17 @@ static int omap_control_phy_probe(struct platform_device *pdev)
 		if (IS_ERR(control_phy->power)) {
 			dev_err(&pdev->dev, "Couldn't get power register\n");
 			return PTR_ERR(control_phy->power);
+		}
+	}
+
+	if (control_phy->type == OMAP_CTRL_TYPE_AM437USB2) {
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+				"sma");
+		control_phy->sma = devm_ioremap(&pdev->dev, res->start,
+				resource_size(res));
+		if (!control_phy->sma) {
+			dev_err(&pdev->dev, "Couldn't get sma register\n");
+			return -ENOMEM;
 		}
 	}
 
