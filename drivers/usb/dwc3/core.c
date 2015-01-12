@@ -659,6 +659,53 @@ static int dwc3_core_get_phy(struct dwc3 *dwc)
 	return 0;
 }
 
+static int dwc3_core_check_vbus_contention(struct dwc3 *dwc)
+{
+	struct device *dev = dwc->dev;
+	int ret;
+	u32 reg;
+
+	if (!dwc->has_otg)
+		return 0;
+
+	/*
+	 * If VBUS is already valid, we have VBUS contention
+	 * problem, can't enter host.
+	 */
+	reg = dwc3_readl(dwc->regs, DWC3_OSTS);
+	if (reg & DWC3_OSTS_VBUSVLD) {
+		dev_err(dev, "VBUS already valid\n");
+		return true;
+	}
+
+	/* try to switch VBUS on */
+	ret = usb_phy_vbus_on(dwc->usb2_phy);
+	if (ret < 0) {
+		dev_err(dev, "failed to charge VBUS\n");
+		return true;
+	}
+	ret = phy_bus_power_on(dwc->usb2_generic_phy);
+	if (ret < 0) {
+		dev_err(dev, "failed to charge VBUS\n");
+		return true;
+	}
+
+	/* wait 100ms for VBUS to stabilize */
+	msleep(100);
+
+	/*
+	 * Now check VBUS state. If VBUS isn't valid, we have a
+	 * VBUS error condition. Can't enter host here either.
+	 */
+	reg = dwc3_readl(dwc->regs, DWC3_OSTS);
+	if (!(reg & DWC3_OSTS_VBUSVLD)) {
+		dev_err(dev, "VBUS error\n");
+		return true;
+	}
+
+	return false;
+}
+
 static int dwc3_core_init_mode(struct dwc3 *dwc)
 {
 	struct device *dev = dwc->dev;
@@ -674,6 +721,9 @@ static int dwc3_core_init_mode(struct dwc3 *dwc)
 		}
 		break;
 	case USB_DR_MODE_HOST:
+		if (dwc3_core_check_vbus_contention(dwc))
+			return -EINVAL;
+
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_HOST);
 		ret = dwc3_host_init(dwc);
 		if (ret) {
