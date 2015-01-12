@@ -28,6 +28,8 @@ struct phy;
  * @exit: operation to be performed while exiting
  * @power_on: powering on the phy
  * @power_off: powering off the phy
+ * @bus_power_on: turns on bus power
+ * @bus_power_off: turns off bus power
  * @owner: the module owner containing the ops
  */
 struct phy_ops {
@@ -35,6 +37,8 @@ struct phy_ops {
 	int	(*exit)(struct phy *phy);
 	int	(*power_on)(struct phy *phy);
 	int	(*power_off)(struct phy *phy);
+	int	(*bus_power_on)(struct phy *phy);
+	void	(*bus_power_off)(struct phy *phy);
 	struct module *owner;
 };
 
@@ -55,6 +59,7 @@ struct phy_attrs {
  * @mutex: mutex to protect phy_ops
  * @init_count: used to protect when the PHY is used by multiple consumers
  * @power_count: used to protect when the PHY is used by multiple consumers
+ * @bus_power_count: used to protect when PHY is used by multiple consumers
  * @phy_attrs: used to specify PHY specific attributes
  */
 struct phy {
@@ -64,6 +69,7 @@ struct phy {
 	struct mutex		mutex;
 	int			init_count;
 	int			power_count;
+	int			bus_power_count;
 	struct phy_attrs	attrs;
 	struct regulator	*pwr;
 };
@@ -119,6 +125,8 @@ int phy_init(struct phy *phy);
 int phy_exit(struct phy *phy);
 int phy_power_on(struct phy *phy);
 int phy_power_off(struct phy *phy);
+int phy_bus_power_on(struct phy *phy);
+void phy_bus_power_off(struct phy *phy);
 static inline int phy_get_bus_width(struct phy *phy)
 {
 	return phy->attrs.bus_width;
@@ -220,6 +228,17 @@ static inline int phy_power_off(struct phy *phy)
 	if (!phy)
 		return 0;
 	return -ENOSYS;
+}
+
+static inline int phy_bus_power_on(struct phy *phy)
+{
+	if (!phy)
+		return 0;
+	return -ENOSYS;
+}
+
+static inline void phy_bus_power_off(struct phy *phy)
+{
 }
 
 static inline int phy_get_bus_width(struct phy *phy)

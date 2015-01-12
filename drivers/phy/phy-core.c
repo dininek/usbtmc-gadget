@@ -339,6 +339,44 @@ int phy_power_off(struct phy *phy)
 }
 EXPORT_SYMBOL_GPL(phy_power_off);
 
+int phy_bus_power_on(struct phy *phy)
+{
+	int ret;
+
+	if (!phy)
+		return 0;
+
+	mutex_lock(&phy->mutex);
+	if (phy->bus_power_count == 0 && phy->ops->bus_power_on) {
+		ret = phy->ops->bus_power_on(phy);
+		if (ret < 0) {
+			dev_err(&phy->dev, "phy bus_power_on failed --> %d\n", ret);
+			goto out;
+		}
+	} else {
+		ret = 0; /* Override possible ret == -ENOTSUPP */
+	}
+	++phy->bus_power_count;
+
+out:
+	mutex_unlock(&phy->mutex);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(phy_bus_power_on);
+
+void phy_bus_power_off(struct phy *phy)
+{
+	if (!phy)
+		return;
+
+	mutex_lock(&phy->mutex);
+	if (phy->bus_power_count == 0 && phy->ops->bus_power_on)
+		phy->ops->bus_power_on(phy);
+	--phy->bus_power_count;
+	mutex_unlock(&phy->mutex);
+}
+EXPORT_SYMBOL_GPL(phy_bus_power_off);
+
 /**
  * _of_phy_get() - lookup and obtain a reference to a phy by phandle
  * @np: device_node for which to get the phy
