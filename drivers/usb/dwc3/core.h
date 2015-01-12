@@ -232,6 +232,7 @@
 
 /* Global HWPARAMS6 Register */
 #define DWC3_GHWPARAMS6_EN_FPGA			(1 << 7)
+#define DWC3_GHWPARAMS6_SRPSUPPORT		(1 << 10)
 
 /* Device Configuration Register */
 #define DWC3_DCFG_DEVADDR(addr)	((addr) << 3)
@@ -691,6 +692,7 @@ struct dwc3_scratchpad_array {
  * @has_hibernation: true when dwc3 was configured with Hibernation
  * @has_lpm_erratum: true when core was configured with LPM Erratum. Note that
  *			there's now way for software to detect this in runtime.
+ * @has_otg: true when this core was configured with OTG support
  * @is_utmi_l1_suspend: the core asserts output signal
  * 	0	- utmi_sleep_n
  * 	1	- utmi_l1_suspend_n
@@ -817,6 +819,7 @@ struct dwc3 {
 	unsigned		ep0_expect_in:1;
 	unsigned		has_hibernation:1;
 	unsigned		has_lpm_erratum:1;
+	unsigned		has_otg:1;
 	unsigned		is_utmi_l1_suspend:1;
 	unsigned		is_selfpowered:1;
 	unsigned		is_fpga:1;

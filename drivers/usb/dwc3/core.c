@@ -531,6 +531,9 @@ static int dwc3_core_init(struct dwc3 *dwc)
 		dwc->is_fpga = true;
 	}
 
+	if (dwc->hwparams.hwparams6 & DWC3_GHWPARAMS6_SRPSUPPORT)
+		dwc->has_otg = true;
+
 	WARN_ONCE(dwc->disable_scramble_quirk && !dwc->is_fpga,
 			"disable_scramble cannot be used on non-FPGA builds\n");
 
