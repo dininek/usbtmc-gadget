@@ -42,6 +42,14 @@
 		};
 	};
 
+	pmu {
+		compatible = "arm,cortex-a9-pmu";
+		reg = <0x4b000000 0x800000>;
+		interrutps = <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>;
+		ti,hwmods = "debugss";
+	};
+
 	gic: interrupt-controller@48241000 {
 		compatible = "arm,cortex-a9-gic";
 		interrupt-controller;
