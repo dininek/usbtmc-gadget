@@ -362,6 +362,57 @@
 		clock-div = <1>;
 	};
 
+	dbg_sysclk_ck: dbg_sysclk_ck {
+		#clock-cells = <0>;
+		compatible = "ti,gate-clock";
+		clocks = <&sys_clkin_ck>;
+		ti,bit-shift = <8>;
+		reg = <0x2820>;
+	};
+
+	dbg_clka_ck: dbg_clka_ck {
+		#clock-cells = <0>;
+		compatible = "ti,gate-clock";
+		clocks = <&sys_clkin_ck>;
+		ti,bit-shift = <9>;
+		reg = <0x2820>;
+	};
+
+	dbg_clkb_ck: dbg_clkb_ck {
+		#clock-cells = <0>;
+		compatible = "ti,gate-clock";
+		clocks = <&sys_clkin_ck>;
+		ti,bit-shift = <10>;
+		reg = <0x2820>;
+	};
+
+	dbg_clkc_ck: dbg_clkc_ck {
+		#clock-cells = <0>;
+		compatible = "ti,gate-clock";
+		clocks = <&sys_clkin_ck>;
+		ti,bit-shift = <11>;
+		reg = <0x2820>;
+	};
+
+	trace_pmd_clk_mux_ck: trace_pmd_clk_mux_ck {
+		#clock-cells = <0>;
+		compatible = "ti,mux-clock";
+		clocks = <&dbg_sysclk_ck>, <&dbg_clka_ck>,
+			<&dbg_clkb_ck>, <&dbg_clkc_ck>;
+		ti,bit-shift = <22>;
+		reg = <0x2820>;
+	};
+
+	trace_clk_div_ck: trace_clk_div_ck {
+		#clock-cells = <0>;
+		compatible = "ti,divider-clock";
+		clocks = <&trace_pmd_clk_mux_ck>;
+		ti,bit-shift = <24>;
+		ti,max-div = <4>;
+		reg = <0x2820>;
+		ti,index-power-of-two;
+	};
+
 	pruss_ocp_gclk: pruss_ocp_gclk {
 		#clock-cells = <0>;
 		compatible = "ti,mux-clock";
