@@ -19,6 +19,7 @@
 #include "omap_hwmod.h"
 #include "omap_hwmod_33xx_43xx_common_data.h"
 #include "prcm43xx.h"
+#include "prm44xx.h"
 #include "omap_hwmod_common_data.h"
 
 
@@ -58,6 +59,45 @@ static struct omap_hwmod am43xx_wkup_m3_hwmod = {
 	},
 	.rst_lines	= am33xx_wkup_m3_resets,
 	.rst_lines_cnt	= ARRAY_SIZE(am33xx_wkup_m3_resets),
+};
+
+/*
+ * 'debugss' class
+ * debug and emulation sub system
+ */
+static struct omap_hwmod_opt_clk am43xx_debugss_opt_clks[] = {
+	{ .role = "dbg_sysclk", .clk = "dbg_sysclk_ck" },
+	{ .role = "dbg_clka", .clk = "dbg_clka_ck", },
+	{ .role = "dbg_clkb", .clk = "dbg_clkb_ck", },
+	{ .role = "dbg_clkc", .clk = "dbg_clkc_ck", },
+};
+
+static struct omap_hwmod_class am43xx_debugss_hwmod_class = {
+	.name	= "debugss",
+};
+
+/* debugss */
+static struct omap_hwmod am43xx_debugss_hwmod = {
+	.name		= "debugss",
+	.class		= &am43xx_debugss_hwmod_class,
+	.clkdm_name	= "l4_wkup_clkdm",
+	.main_clk	= "sys_clkin_ck",
+	.prcm = {
+		.omap4 = {
+			.clkctrl_offs = AM43XX_CM_WKUP_DBGSS_CLKCTRL_OFFSET,
+			.modulemode = MODULEMODE_SWCTRL,
+		},
+	},
+	.opt_clks	= am43xx_debugss_opt_clks,
+	.opt_clks_cnt	= ARRAY_SIZE(am43xx_debugss_opt_clks),
+};
+
+/* debugss -> l3_main_2 */
+static struct omap_hwmod_ocp_if am43xx_debugss__l3_main = {
+	.master		= &am43xx_debugss_hwmod,
+	.slave		= &am33xx_l3_main_hwmod,
+	.clk		= "sys_clkin_ck",
+	.user		= OCP_USER_MPU | OCP_USER_SDMA,
 };
 
 static struct omap_hwmod am43xx_control_hwmod = {
@@ -877,6 +917,7 @@ static struct omap_hwmod_ocp_if *am43xx_hwmod_ocp_ifs[] __initdata = {
 	&am33xx_l3_main__tptc1,
 	&am33xx_l3_main__tptc2,
 	&am33xx_l3_main__ocmc,
+	&am43xx_debugss__l3_main,
 	&am43xx_l4_hs__cpgmac0,
 	&am33xx_cpgmac0__mdio,
 	&am33xx_l3_main__sha0,
