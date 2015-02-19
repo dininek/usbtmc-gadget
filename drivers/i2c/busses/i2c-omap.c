@@ -184,6 +184,7 @@ enum {
 #define OMAP_I2C_IP_V2_INTERRUPTS_MASK	0x6FFF
 
 struct omap_i2c_dev {
+	struct i2c_bus_recovery_info bri;
 	spinlock_t		lock;		/* IRQ synchronization */
 	struct device		*dev;
 	void __iomem		*base;		/* virtual */
@@ -221,6 +222,7 @@ struct omap_i2c_dev {
 	u16			westate;
 	u16			errata;
 };
+#define bri_to_omap(b)	(container_of((b), struct omap_i2c_dev, bri))
 
 static const u8 reg_map_ip_v1[] = {
 	[OMAP_I2C_REV_REG] = 0x00,
@@ -481,10 +483,8 @@ static int omap_i2c_wait_for_bb(struct omap_i2c_dev *dev)
 
 	timeout = jiffies + OMAP_I2C_TIMEOUT;
 	while (omap_i2c_read_reg(dev, OMAP_I2C_STAT_REG) & OMAP_I2C_STAT_BB) {
-		if (time_after(jiffies, timeout)) {
-			dev_warn(dev->dev, "timeout waiting for bus ready\n");
-			return -ETIMEDOUT;
-		}
+		if (time_after(jiffies, timeout))
+			return i2c_recover_bus(&dev->adapter);
 		msleep(1);
 	}
 
@@ -1209,6 +1209,59 @@ MODULE_DEVICE_TABLE(of, omap_i2c_of_match);
 #define OMAP_I2C_SCHEME_0		0
 #define OMAP_I2C_SCHEME_1		1
 
+static int omap_i2c_get_scl(struct i2c_adapter *adap)
+{
+	struct omap_i2c_dev *dev = i2c_get_adapdata(adap);
+	u32 reg;
+
+	reg = omap_i2c_read_reg(dev, OMAP_I2C_SYSTEST_REG);
+
+	return reg & OMAP_I2C_SYSTEST_SCL_I_FUNC;
+}
+
+static int omap_i2c_get_sda(struct i2c_adapter *adap)
+{
+	struct omap_i2c_dev *dev = i2c_get_adapdata(adap);
+	u32 reg;
+
+	reg = omap_i2c_read_reg(dev, OMAP_I2C_SYSTEST_REG);
+
+	return reg & OMAP_I2C_SYSTEST_SDA_I_FUNC;
+}
+
+static void omap_i2c_set_scl(struct i2c_adapter *adap, int val)
+{
+	struct omap_i2c_dev *dev = i2c_get_adapdata(adap);
+	u32 reg;
+
+	reg = omap_i2c_read_reg(dev, OMAP_I2C_SYSTEST_REG);
+	if (val)
+		reg |= OMAP_I2C_SYSTEST_SCL_O;
+	else
+		reg &= ~OMAP_I2C_SYSTEST_SCL_O;
+	omap_i2c_write_reg(dev, OMAP_I2C_SYSTEST_REG, reg);
+}
+
+static void omap_i2c_prepare_recovery(struct i2c_bus_recovery_info *bri)
+{
+	struct omap_i2c_dev *dev = bri_to_omap(bri);
+	u32 reg;
+
+	reg = omap_i2c_read_reg(dev, OMAP_I2C_SYSTEST_REG);
+	reg |= OMAP_I2C_SYSTEST_ST_EN;
+	omap_i2c_write_reg(dev, OMAP_I2C_SYSTEST_REG, reg);
+}
+
+static void omap_i2c_unprepare_recovery(struct i2c_bus_recovery_info *bri)
+{
+	struct omap_i2c_dev *dev = bri_to_omap(bri);
+	u32 reg;
+
+	reg = omap_i2c_read_reg(dev, OMAP_I2C_SYSTEST_REG);
+	reg &= ~OMAP_I2C_SYSTEST_ST_EN;
+	omap_i2c_write_reg(dev, OMAP_I2C_SYSTEST_REG, reg);
+}
+
 static int
 omap_i2c_probe(struct platform_device *pdev)
 {
@@ -1257,6 +1310,13 @@ omap_i2c_probe(struct platform_device *pdev)
 
 	dev->dev = &pdev->dev;
 	dev->irq = irq;
+
+	dev->bri.get_scl = omap_i2c_get_scl;
+	dev->bri.get_sda = omap_i2c_get_sda;
+	dev->bri.set_scl = omap_i2c_set_scl;
+	dev->bri.prepare_recovery = omap_i2c_prepare_recovery;
+	dev->bri.unprepare_recovery = omap_i2c_unprepare_recovery;
+	dev->bri.recover_bus = i2c_generic_scl_recovery;
 
 	spin_lock_init(&dev->lock);
 
@@ -1358,6 +1418,7 @@ omap_i2c_probe(struct platform_device *pdev)
 	adap->algo = &omap_i2c_algo;
 	adap->dev.parent = &pdev->dev;
 	adap->dev.of_node = pdev->dev.of_node;
+	adap->bus_recovery_info = &dev->bri;
 
 	/* i2c device drivers may be active on return from add_adapter() */
 	adap->nr = pdev->id;
